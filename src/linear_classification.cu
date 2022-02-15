@@ -27,7 +27,6 @@ int main(int argc, char **argv)
     /* Hyperarameters for Stochastic Gradient Descent */
     int nb_iter = 100;          // default: 10;
     int periods = nb_iter;      // reporting period
-    int batch_size = N;         // defeault: N;
     float learning_rate = 1e-7; // default: 1e-7
     bool verbose = false;       // Show logs
 
@@ -91,8 +90,8 @@ int main(int argc, char **argv)
     parametered_normalize(d_Xtest, d_Mu, d_Std);
 
     /* Create auxiliary matrices on device */
-    fmatrix d_Z = fmatrix_create_on_device(M, batch_size);
-    fmatrix d_P = fmatrix_create_on_device(M, batch_size);
+    fmatrix d_Z = fmatrix_create_on_device(M, N);
+    fmatrix d_P = fmatrix_create_on_device(M, N);
     fmatrix d_G = fmatrix_create_on_device(D, M);
     fmatrix d_Ztest = fmatrix_create_on_device(M, d_Xtest.cols);
 
@@ -122,7 +121,6 @@ int main(int argc, char **argv)
     clock_t t_start_total, t_end;
     t_start_total = clock();
 
-    int batch_pointer = 0;
     for (int i = 0; i < nb_iter; ++i)
     {
 
@@ -207,8 +205,8 @@ int main(int argc, char **argv)
         {
             float accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
             J = evaluate_logloss(handle, d_P, d_Y, verbose);
-            printf("iter: %d, logloss: %f, accuracy: %f\n", i, J, accuracy);
-            fprintf(fp, "%f,%f\n", J, accuracy);
+            printf("iter: %d, logloss: %f, accuracy: %f\n", i, J / (float)N, accuracy);
+            fprintf(fp, "%f,%f\n", J / (float)N, accuracy);
         }
     }
     t_end = clock();
