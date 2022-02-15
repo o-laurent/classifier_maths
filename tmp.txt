@@ -1,0 +1,8 @@
+set cuda memcheck on
+set cuda api_failures stop
+catch throw
+r UNIT
+bt
+info locals
+thread 1
+bt
