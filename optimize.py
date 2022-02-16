@@ -1,3 +1,5 @@
+""" Optimisation script for the linear classification. """
+
 import matplotlib.pyplot as plt
 import ctypes
 import optuna
@@ -14,6 +16,11 @@ classifier_lib.linear_classification.restype = ctypes.c_float
 
 
 def plot_file(filename="log.txt"):
+    """ Plot a log file.
+
+    Args:
+        filename (str, optional): The path to the file. Defaults to "log.txt".
+    """
     data = pd.read_csv('log.txt', sep=',', header=None)
     fig, ax = plt.subplots()
     ax.plot(data[0], label="logloss")
@@ -26,21 +33,19 @@ def plot_file(filename="log.txt"):
 
 
 def optimize(trial):
-    """Wrapper for optuna"""
-    batch_size = trial.suggest_int('batch_size', 1, 12000, 2)
-    learning_rate = trial.suggest_loguniform('learning_rate', -10, 0)
+    """ Wrapper for optuna. """
+    batch_size = int(trial.suggest_loguniform('batch_size', 1, 12000))
+    learning_rate = trial.suggest_loguniform('learning_rate', 1e-10, 1)
     rate_decay = trial.suggest_float('rate_decay', 0, 1)
-    return -linear_classification(10, batch_size, learning_rate)
+    return -classifier_lib.linear_classification(10, batch_size, learning_rate, rate_decay)
 
 
-accuracy = classifier_lib.linear_classification(10, 64, 1e-5, 1)
+do_optimize = True  # Set to true to optimize
+n_trials = 100  # Number of tries
 
-print(accuracy)
-
-optimize = False
-if optimize:
+if do_optimize:
     study = optuna.create_study()
-    study.optimize(optimize, n_jobs=1, n_trials=200)
+    study.optimize(optimize, n_jobs=1, n_trials=n_trials)
     print(study.best_params)
     batch_size = study.best_params['batch_size']
     learning_rate = study.best_params['learning_rate']
