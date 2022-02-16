@@ -25,11 +25,11 @@ int main(int argc, char **argv)
     unsigned Nall = N_train + N_test;
 
     /* Hyperarameters for Stochastic Gradient Descent */
-    unsigned nb_iter = 10;      // default: 10;
+    unsigned nb_iter = 100;     // default: 10;
     unsigned periods = nb_iter; // reporting period
-    unsigned batch_size = 5000; // default: N;
-    float learning_rate = 1e-4; // default: 1e-7
-    float rate_decay = 0.7;
+    unsigned batch_size = N;    // default: N;
+    float learning_rate = 1e-5; // default: 1e-7
+    float rate_decay = 1;
     bool verbose = false; // Show logs
 
     /* Reading the data set */
@@ -97,12 +97,6 @@ int main(int argc, char **argv)
     fmatrix d_G = fmatrix_create_on_device((int)D, (int)M);
     fmatrix d_Ztest = fmatrix_create_on_device((int)M, d_Xtest.cols);
 
-    /////////////////////////////////////////////////////////
-    // Batch Gradient Descent
-    /////////////////////////////////////////////////////////
-    // fmatrix_device_print(d_X);
-    // fmatrix_device_print(d_W);
-
     /* Create Handle */
     cublasHandle_t handle;
     cublasStatus_t stat = cublasCreate(&handle);
@@ -127,23 +121,23 @@ int main(int argc, char **argv)
         unsigned batch_pointer = 0;
         float J = 0;
         unsigned nb_col = batch_size;
+        d_P.cols = (int)batch_size;
+        d_Z.cols = (int)batch_size;
 
         /* Loop on mini-batches */
         while (batch_pointer < N)
         {
+            /* If the batch is smaller */
             if (batch_pointer + batch_size > N)
             {
-                unsigned nb_col = N - batch_pointer;
+                nb_col = N - batch_pointer;
                 d_P.cols = (int)nb_col;
                 d_Z.cols = (int)nb_col;
             }
             fmatrix d_X = fmatrix_subcolumns(d_X_tot, batch_pointer, batch_pointer + nb_col);
             fmatrix d_Y = fmatrix_subcolumns(d_Y_tot, batch_pointer, batch_pointer + nb_col);
 
-            ////////////////////////////////
-            // compute Z = W^T X
-            // --> each column z of Z corresponds to one column x of X
-            ////////////////////////////////
+            /* compute Z = W^T X */
             cublasStatus_t multstat = cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, d_W.cols, d_X.cols, d_W.rows, &alpha, d_W.data, d_W.rows, d_X.data, d_X.rows, &beta, d_Z.data, d_Z.rows);
             if (verbose)
             {
@@ -171,9 +165,11 @@ int main(int argc, char **argv)
             }
             // compute softmax per column of Z and store in P
             d_P = softmax_col(d_Z);
+            gpuErrchk(cudaPeekAtLastError());
 
             // Q := P-Y
             fmatrix d_Q = fmatrix_add(d_P, -1.0f, d_Y);
+            gpuErrchk(cudaPeekAtLastError());
 
             if (verbose)
             {
@@ -187,8 +183,9 @@ int main(int argc, char **argv)
                 fmatrix_device_print(d_Q);
             }
 
-            // compute gradient G = XQ^T
+            /* compute gradient G = XQ^T */
             multstat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, d_X.rows, d_Q.rows, d_X.cols, &alpha, d_X.data, d_X.rows, d_Q.data, d_Q.rows, &beta, d_G.data, d_G.rows);
+            gpuErrchk(cudaPeekAtLastError());
             if (verbose)
             {
                 printf("d_X:");
@@ -209,23 +206,26 @@ int main(int argc, char **argv)
                 gpuErrchk(cudaPeekAtLastError());
             }
 
-            // update weights W = W - learning_rate*G
+            /* update weights W = W - learning_rate*G */
             d_W = fmatrix_add(d_W, -learning_rate, d_G);
+            gpuErrchk(cudaPeekAtLastError());
             if (verbose)
             {
                 fmatrix_device_print(d_W);
             }
 
             /* Compute J for reporting */
-            J += evaluate_logloss(handle, d_P, d_Y, verbose);
+            J = evaluate_logloss(handle, d_P, d_Y, verbose);
+
+            /* Increase pointer */
             batch_pointer += batch_size;
         }
         /* Log accuracy and loss */
         if (i % (nb_iter / periods) == 0)
         {
             float accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
-            printf("iter: %u, logloss: %f, accuracy: %f, lr: %f\n", i, J / (float)N, accuracy, learning_rate);
-            fprintf(fp, "%f,%f\n", J / (float)N, accuracy);
+            printf("iter: %u, logloss: %f, accuracy: %f, lr: %f\n", i, J, accuracy, learning_rate);
+            fprintf(fp, "%f,%f\n", J, accuracy);
         }
 
         /* reduce the learning rate */
