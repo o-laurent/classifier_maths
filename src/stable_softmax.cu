@@ -90,19 +90,12 @@ fmatrix stable_softmax(fmatrix Z_d)
 
     softmax_kernel<<<dimGrid, dimBlock>>>(Z_d, M.data, M.cols, S.data, S.cols, expZ_d.data);
     gpuErrchk(cudaPeekAtLastError());
-    // printf("expZ_d before div\n");
-    // fmatrix_device_print(expZ_d);
-
-    // printf("S before div\n");
-    // fmatrix_device_print(S);
 
     /* Divide by the sum */
     softmax_kernel_div<<<dimGrid, dimBlock>>>(expZ_d, S.data, S.cols);
     gpuErrchk(cudaPeekAtLastError());
 
-    // printf("expZ_d\n");
-    // fmatrix_device_print(expZ_d);
-
+    /* Free the memory */
     fmatrix_free_on_device(&M);
     fmatrix_free_on_device(&S);
 

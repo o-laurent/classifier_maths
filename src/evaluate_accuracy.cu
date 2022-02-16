@@ -182,6 +182,8 @@ float evaluate_logloss(cublasHandle_t handle, fmatrix d_P, fmatrix d_Y, bool ver
 
     cudaMemcpy(&J, d_J, sizeof(float), cudaMemcpyDeviceToHost);
 
+    /* Free memory */
+    cudaFree(d_J);
     fmatrix_free_on_device(&d_logP);
     fmatrix_free_on_device(&d_Z);
 

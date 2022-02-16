@@ -40,12 +40,6 @@ int main(int argc, char **argv)
     fmatrix Yall = fmatrix_create_on_host(M, Nall);
     get_inputs_and_labels(alldata.data, &Xall.data, &Yall.data, Nall, data_columns, D, M);
 
-    /////////////////////////////////////////////////////////
-    // Inputs and labels are now available in X and Y.
-    // Each input is a column in X; X is of dimension D x N
-    // each label is a column in Y; Y is of dimension M x N
-    /////////////////////////////////////////////////////////
-
     // Logfile
     FILE *fp = fopen("log.txt", "w");
 
@@ -55,7 +49,6 @@ int main(int argc, char **argv)
     fmatrix h_Xtest = fmatrix_subcolumns(Xall, N, Nall);
     fmatrix h_Ytest = fmatrix_subcolumns(Yall, N, Nall);
     fmatrix h_W = fmatrix_create_on_host(D, M);
-    fmatrix h_J = fmatrix_create_on_host(1, 1);
 
     xavier_weight_init(1.0, h_W);
 
@@ -65,7 +58,6 @@ int main(int argc, char **argv)
     fmatrix d_Xtest = fmatrix_copy_to_device(h_Xtest);
     fmatrix d_Ytest = fmatrix_copy_to_device(h_Ytest);
     fmatrix d_W = fmatrix_copy_to_device(h_W);
-    fmatrix d_J = fmatrix_copy_to_device(h_J);
 
     /* Normalize */
     fmatrix d_Mu = compute_mean(d_X);
@@ -191,6 +183,8 @@ int main(int argc, char **argv)
 
         // update weights W = W - learning_rate*G
         d_W = fmatrix_add(d_W, -learning_rate, d_G);
+        gpuErrchk(cudaPeekAtLastError());
+
         if (verbose)
         {
             fmatrix_device_print(d_W);
@@ -231,7 +225,9 @@ int main(int argc, char **argv)
     fmatrix_free_on_device(&d_Ytest);
     fmatrix_free_on_device(&d_W);
     fmatrix_free_on_device(&d_Z);
-    fmatrix_free_on_device(&d_J);
+    fmatrix_free_on_device(&d_Mu);
+    fmatrix_free_on_device(&d_Std);
+
     cublasDestroy(handle);
 
     // Close log file

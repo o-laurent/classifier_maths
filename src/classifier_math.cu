@@ -73,7 +73,10 @@ static __global__ void fmatrix_add_kernel(fmatrix P, float a, fmatrix Y, fmatrix
     }
 }
 
-/** Compute Q = P + a*Y */
+/** 
+ * Computes Q = P + a*Y 
+ * Frees P
+*/
 fmatrix fmatrix_add(fmatrix P, float a, fmatrix Y)
 {
     fmatrix_assert(P);
@@ -94,5 +97,7 @@ fmatrix fmatrix_add(fmatrix P, float a, fmatrix Y)
 
     fmatrix_add_kernel<<<blocksPerGrid, threadsPerBlock>>>(P, a, Y, Q);
     gpuErrchk(cudaPeekAtLastError());
+
+    fmatrix_free_on_device(&P);
     return Q;
 }

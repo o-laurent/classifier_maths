@@ -137,4 +137,8 @@ void normalize(fmatrix d_X)
     // Normalize the matrix
     parametered_normalize(d_X, d_Mu, d_Std);
     gpuErrchk(cudaPeekAtLastError());
+
+    /* Free the memory */
+    fmatrix_free_on_device(&d_Mu);
+    fmatrix_free_on_device(&d_Std);
 }

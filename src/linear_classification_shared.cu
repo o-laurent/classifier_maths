@@ -50,7 +50,6 @@ extern "C"
         fmatrix h_Xtest = fmatrix_subcolumns(Xall, (int)N, (int)Nall);
         fmatrix h_Ytest = fmatrix_subcolumns(Yall, (int)N, (int)Nall);
         fmatrix h_W = fmatrix_create_on_host((int)D, (int)M);
-        fmatrix h_J = fmatrix_create_on_host(1, 1);
 
         xavier_weight_init(1.0, h_W);
 
@@ -60,7 +59,6 @@ extern "C"
         fmatrix d_Xtest = fmatrix_copy_to_device(h_Xtest);
         fmatrix d_Ytest = fmatrix_copy_to_device(h_Ytest);
         fmatrix d_W = fmatrix_copy_to_device(h_W);
-        fmatrix d_J = fmatrix_copy_to_device(h_J);
 
         /* Normalize */
         fmatrix d_Mu = compute_mean(d_X_tot);
@@ -185,7 +183,9 @@ extern "C"
         fmatrix_free_on_device(&d_Ytest);
         fmatrix_free_on_device(&d_W);
         fmatrix_free_on_device(&d_Z);
-        fmatrix_free_on_device(&d_J);
+        fmatrix_free_on_device(&d_Mu);
+        fmatrix_free_on_device(&d_Std);
+
         cublasDestroy(handle);
 
         // Close log file
