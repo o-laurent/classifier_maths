@@ -13,12 +13,12 @@
 using namespace std;
 
 /* transform matrix index to vector offset
-   Since CUDA uses column major, 
-   ld = number of rows 
+   Since CUDA uses column major,
+   ld = number of rows
    Example of use: a[IDX2C(0, 1, 50)] */
 #define IDX2C(i, j, ld) (((j) * (ld)) + (i))
 
-//Number of thread per block
+// Number of thread per block
 #define THREADS_PER_BLOCK 1024
 /* Constants for housing data set */
 #define data_columns (9)
@@ -36,17 +36,19 @@ using namespace std;
    Since cuBLAS is column major, each input is in a column.
    We also add 1.0 as first element to each input vector.
 */
-void get_inputs_and_labels(float *data_array, float **input_array, float **label_array, int nbrows, int nbcols, int nb_inputs, int nb_labels)
+void get_inputs_and_labels(float *data_array, float **input_array, float **label_array, int nbrows, int nbcols, int nb_inputs, int nb_labels, bool verbose /*= false */)
 {
     // The inputs are the first nbrows-1 columns.
     // The labels are the last column (index nbrows-1), booleanized
     // by the condition >= above_threshold
     *input_array = (float *)malloc(nbrows * nb_inputs * sizeof(float));
     *label_array = (float *)malloc(nbrows * nb_labels * sizeof(float));
-    //cout << &input_array << " and "<< &label_array << " data " << data_array << std::endl;
-    cout << "Allocated memory for inputs: " << nbrows << " rows, " << nb_inputs << " columns." << std::endl;
-    cout << "Allocated memory for labels: " << nbrows << " rows, " << nb_labels << " columns." << std::endl;
-
+    // cout << &input_array << " and "<< &label_array << " data " << data_array << std::endl;
+    if (verbose)
+    {
+        cout << "Allocated memory for inputs: " << nbrows << " rows, " << nb_inputs << " columns." << std::endl;
+        cout << "Allocated memory for labels: " << nbrows << " rows, " << nb_labels << " columns." << std::endl;
+    }
     // Copy the data to X
     for (int i = 0; i < nbrows; i++)
     {
@@ -71,22 +73,25 @@ void get_inputs_and_labels(float *data_array, float **input_array, float **label
     }
 
     // Show some entries for double checking
-    cout << "Inputs (first " << print_rows << "):" << std::endl;
-    for (int j = 0; j < nb_inputs; j++)
+    if (verbose)
     {
-        for (int i = 0; i < nbrows && i < print_rows; i++)
+        cout << "Inputs (first " << print_rows << "):" << std::endl;
+        for (int j = 0; j < nb_inputs; j++)
         {
-            cout << (*input_array)[IDX2C(j, i, nb_inputs)] << "\t";
+            for (int i = 0; i < nbrows && i < print_rows; i++)
+            {
+                cout << (*input_array)[IDX2C(j, i, nb_inputs)] << "\t";
+            }
+            cout << "\n";
         }
-        cout << "\n";
-    }
-    cout << "Labels (first " << print_rows << "):" << std::endl;
-    for (int j = 0; j < nb_labels; j++)
-    {
-        for (int i = 0; i < nbrows && i < print_rows; i++)
+        cout << "Labels (first " << print_rows << "):" << std::endl;
+        for (int j = 0; j < nb_labels; j++)
         {
-            cout << (*label_array)[IDX2C(j, i, nb_labels)] << "\t";
+            for (int i = 0; i < nbrows && i < print_rows; i++)
+            {
+                cout << (*label_array)[IDX2C(j, i, nb_labels)] << "\t";
+            }
+            cout << "\n";
         }
-        cout << "\n";
     }
 }

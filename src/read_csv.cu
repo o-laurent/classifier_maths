@@ -17,7 +17,7 @@ using namespace std;
 /////////////////////////////////////////////////////////
 
 /* Read a csv file with a given number of rows and columns */
-void read_csv(const char *filename, float *data_array, int nbrow, int nbcol)
+void read_csv(const char *filename, float *data_array, int nbrow, int nbcol, bool verbose /*= false */)
 {
     string row_as_string;
     string value;
@@ -29,7 +29,8 @@ void read_csv(const char *filename, float *data_array, int nbrow, int nbcol)
     {
         // read the headers (and discard)
         getline(infile, row_as_string, '\n');
-        cout << "headers: " << row_as_string << "!" << std::endl;
+        if (verbose)
+            cout << "headers: " << row_as_string << "!" << std::endl;
         for (int i = 0; i < nbrow; i++)
         {
             getline(infile, row_as_string, '\n');
@@ -46,7 +47,8 @@ void read_csv(const char *filename, float *data_array, int nbrow, int nbcol)
             ++row_count;
         }
         infile.close();
-        cout << "Read " << row_count << " rows." << std::endl;
+        if (verbose)
+            cout << "Read " << row_count << " rows." << std::endl;
     }
     else
         cout << "Cannot open file." << endl;
