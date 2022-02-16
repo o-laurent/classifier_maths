@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     /* Hyperarameters for Stochastic Gradient Descent */
     int nb_iter = 100;          // default: 10;
     int periods = nb_iter;      // reporting period
-    float learning_rate = 1e-7; // default: 1e-7
+    float learning_rate = 1e-5; // default: 1e-7
     bool verbose = false;       // Show logs
 
     /* Reading the data set */
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
     float accuracy = 0;
     accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
     float J = evaluate_logloss(handle, d_P, d_Y, verbose);
-    printf("Initial accuracy: %f - initial logloss: %f\n", accuracy, J);
+    printf("Initial accuracy: %f\n", accuracy);
 
     float alpha = 1.0f;
     float beta = 0.0f;
@@ -124,11 +124,9 @@ int main(int argc, char **argv)
     for (int i = 0; i < nb_iter; ++i)
     {
 
-        ////////////////////////////////
-        // compute Z = W^T X
-        // --> each column z of Z corresponds to one column x of X
-        ////////////////////////////////
+        /* compute Z = W^T x X */
         cublasStatus_t multstat = cublasSgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, d_W.cols, d_X.cols, d_W.rows, &alpha, d_W.data, d_W.rows, d_X.data, d_X.rows, &beta, d_Z.data, d_Z.rows);
+        gpuErrchk(cudaPeekAtLastError());
         if (verbose)
         {
             printf("d_W:");
@@ -146,13 +144,13 @@ int main(int argc, char **argv)
         if (multstat != CUBLAS_STATUS_SUCCESS)
         {
             printf("CUBLAS matrix multiplication failed 3 %d\n", multstat);
-            gpuErrchk(cudaPeekAtLastError());
         }
 
-        // compute softmax per column of Z and store in P
+        /* compute softmax per column of Z and store in P */
         d_P = softmax_col(d_Z);
+        gpuErrchk(cudaPeekAtLastError());
 
-        // Q := P-Y
+        /* Compute Q := P-Y */
         fmatrix d_Q = fmatrix_add(d_P, -1.0f, d_Y);
 
         if (verbose)
@@ -169,6 +167,8 @@ int main(int argc, char **argv)
 
         // compute gradient G = XQ^T
         multstat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, d_X.rows, d_Q.rows, d_X.cols, &alpha, d_X.data, d_X.rows, d_Q.data, d_Q.rows, &beta, d_G.data, d_G.rows);
+        gpuErrchk(cudaPeekAtLastError());
+
         if (verbose)
         {
             printf("d_X:");
@@ -205,8 +205,8 @@ int main(int argc, char **argv)
         {
             float accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
             J = evaluate_logloss(handle, d_P, d_Y, verbose);
-            printf("iter: %d, logloss: %f, accuracy: %f\n", i, J / (float)N, accuracy);
-            fprintf(fp, "%f,%f\n", J / (float)N, accuracy);
+            printf("iter: %d, logloss: %f, accuracy: %f\n", i, J, accuracy);
+            fprintf(fp, "%f,%f\n", J, accuracy);
         }
     }
     t_end = clock();
