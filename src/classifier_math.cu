@@ -8,8 +8,36 @@
 
 #define THREADS_PER_BLOCK 1024
 
-// generate random numbers in interval [min,max]
+/* Compute the elementwise logarithm on the device */
+__global__ void log_kernel(fmatrix Z_d, float *d_logP)
+{
+    int case_id = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = case_id % Z_d.rows; // line id
+    int j = case_id / Z_d.cols; // col id
 
+    /* If j is coherent */
+    if (j < Z_d.cols)
+    {
+        /* Compute the log */
+        d_logP[IDX2C(i, j, Z_d.rows)] = logf(getfm(Z_d, i, j));
+    }
+}
+
+/* Compute the sum of the diagonal of the product of A and B sum(diag(Yt*P)) */
+__global__ void sum_diag_kernel(fmatrix d_A, float *J)
+{
+    int case_id = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = case_id;
+    int i = case_id;
+
+    /* If j is coherent */
+    if (j < d_A.cols && i < d_A.rows)
+    {
+        atomicAdd(J, getfm(d_A, i, j));
+    }
+}
+
+/* generate random numbers in interval [min,max] */
 float float_rand(float min, float max)
 {
     float scale = rand() / (float)RAND_MAX; /* [0, 1.0] */
@@ -30,16 +58,11 @@ void xavier_weight_init(float a, fmatrix W)
 fmatrix softmax_col(fmatrix Z)
 {
     fmatrix P = stable_softmax(Z);
-    // printf("P\n");
-    // fmatrix_device_print(P);
-
     gpuErrchk(cudaPeekAtLastError());
-    device_synchronize();
-
     return P;
 }
 
-__global__ void fmatrix_add_kernel(fmatrix P, float a, fmatrix Y, fmatrix Q)
+static __global__ void fmatrix_add_kernel(fmatrix P, float a, fmatrix Y, fmatrix Q)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int j = idx / P.rows;
@@ -57,6 +80,8 @@ fmatrix fmatrix_add(fmatrix P, float a, fmatrix Y)
     fmatrix_assert(Y);
     assert(P.rows == Y.rows);
     assert(P.cols == Y.cols);
+
+    /* One thread per element */
     int threadsPerBlock = fmatrix_elements(P);
     int blocksPerGrid = 1;
     if (threadsPerBlock > THREADS_PER_BLOCK)

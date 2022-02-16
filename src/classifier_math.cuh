@@ -3,6 +3,12 @@
 
 #include "fmatrix.cuh"
 
+/* Compute the elementwise logarithm on the device */
+__global__ void log_kernel(fmatrix Z_d, float *d_logP);
+
+/* Compute the sum of the diagonal of the product of A and B sum(diag(Yt*P)) */
+__global__ void sum_diag_kernel(fmatrix d_A, float *J);
+
 /* Returns a random float between min and max (including). */
 float float_rand(float min, float max);
 
