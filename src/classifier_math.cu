@@ -9,21 +9,21 @@
 #define THREADS_PER_BLOCK 1024
 
 /* Compute the elementwise logarithm on the device */
-__global__ void log_kernel(fmatrix Z_d, float *d_logP)
+__global__ void log_kernel(fmatrix d_P, fmatrix d_logP)
 {
     int case_id = blockIdx.x * blockDim.x + threadIdx.x;
-    int i = case_id % Z_d.rows; // line id
-    int j = case_id / Z_d.cols; // col id
+    int i = case_id % d_P.rows; // line id
+    int j = case_id / d_P.rows; // col id
 
     /* If j is coherent */
-    if (j < Z_d.cols)
+    if (j < d_P.cols)
     {
-        /* Compute the log */
-        d_logP[IDX2C(i, j, Z_d.rows)] = logf(getfm(Z_d, i, j));
+        /* Compute the log - avoid null values*/
+        getfm(d_logP, i, j) = logf(max(getfm(d_P, i, j), 1e-10));
     }
 }
 
-/* Compute the sum of the diagonal of the product of A and B sum(diag(Yt*P)) */
+/* Compute the sum of the diagonal of a matrix */
 __global__ void sum_diag_kernel(fmatrix d_A, float *J)
 {
     int case_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -44,8 +44,9 @@ float float_rand(float min, float max)
     return min + scale * (max - min);       /* [min, max] */
 }
 
-void xavier_weight_init(float a, fmatrix W)
+void xavier_weight_init(float a, fmatrix W, unsigned seed /* = 42 */)
 {
+    srand(seed);
     for (int j = 0; j < W.rows; ++j)
     {
         for (int i = 0; i < W.cols; ++i)
@@ -73,10 +74,10 @@ static __global__ void fmatrix_add_kernel(fmatrix P, float a, fmatrix Y, fmatrix
     }
 }
 
-/** 
- * Computes Q = P + a*Y 
+/**
+ * Computes Q = P + a*Y
  * Frees P
-*/
+ */
 fmatrix fmatrix_add(fmatrix P, float a, fmatrix Y)
 {
     fmatrix_assert(P);
