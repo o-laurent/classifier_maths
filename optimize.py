@@ -34,7 +34,7 @@ def plot_file(filename="log.txt"):
 
 def optimize(trial):
     """ Wrapper for optuna. """
-    batch_size = int(trial.suggest_loguniform('batch_size', 1, 12000))
+    batch_size = int(trial.suggest_loguniform('batch_size', 16, 12000))
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-10, 1)
     rate_decay = trial.suggest_float('rate_decay', 0, 1)
     return -classifier_lib.linear_classification(10, batch_size, learning_rate, rate_decay)

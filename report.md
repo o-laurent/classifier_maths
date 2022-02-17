@@ -4,7 +4,7 @@
 
 All three questions have been implemented and optimised to some extent. The CuBLAS handle is for instance shared all along the computations.
 
-The hyperparameters are optimized using Parzen Tree Estimators (via optuna). The objective of the optimization is to maximize the accuracy on the test set, while keeping the same number of epochs - total time would be more interesting than the number of epochs considering the speedup using greater batches, but it was deemed more difficult to control. Interesting hyperparameters include {'batch_size': 8, 'learning_rate': 0.057, 'rate_decay': 0.59}. The computation takes 3s with i7-11800H + RTX3070M.
+The hyperparameters are optimized using Parzen Tree Estimators (via optuna). The objective of the optimization is to maximize the accuracy on the test set, while keeping the same number of epochs - total time would be more interesting than the number of epochs considering the speedup using greater batches, but it was deemed more difficult to control. Interesting hyperparameters include {'batch_size': 256, 'learning_rate': 0.0193, 'rate_decay': 0.57} with a test accuracy of 0.8478. The computation takes less than 1s with the following configuration: i7-11800H + RTX3070M.
 
 The CUDA C++ code is called by python using ctypes. Memory leaks have been reduced to the minimum.
 
@@ -19,6 +19,8 @@ Type `make all -j` in the root directory to build the 2 binaries and the shared 
 For the batch linear classification, just type `./linear_classification`.
 
 For the mini-batch linear classification, just type `./batch_linear_classification`.
+
+Use `make check` and `make batch_check` for memory checks using cuda-gdb.
 
 ### Python for hyperparameters optimization
 

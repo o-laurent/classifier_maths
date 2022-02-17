@@ -25,11 +25,11 @@ int main(int argc, char **argv)
     unsigned Nall = N_train + N_test;
 
     /* Hyperarameters for Stochastic Gradient Descent */
-    unsigned nb_iter = 10;        // default: 10;
-    unsigned periods = nb_iter;   // reporting period
-    unsigned batch_size = 8;      // default: N;
-    float learning_rate = 0.057f; // default: 1e-7
-    float rate_decay = 0.59f;
+    unsigned nb_iter = 10;         // default: 10;
+    unsigned periods = nb_iter;    // reporting period
+    unsigned batch_size = 256;     // default: N;
+    float learning_rate = 0.0193f; // default: 1e-7
+    float rate_decay = 0.57f;
     bool verbose = false; // Show logs
 
     /* Reading the data set */
