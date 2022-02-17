@@ -109,6 +109,7 @@ float evaluate_accuracy(cublasHandle_t handle, fmatrix d_W, fmatrix d_X, fmatrix
         printf("Accuracy: %f\n", (float)true_class / (float)nb_tested);
     }
 
+    cudaFree(d_count);
     return (float)true_class / (float)d_Z.cols;
 }
 
@@ -118,22 +119,28 @@ float evaluate_logloss(cublasHandle_t handle, fmatrix d_P, fmatrix d_Y, bool ver
     assert(d_Y.rows == d_P.rows);
 
     /* One thread per element */
-    int thread_nb = d_P.rows * d_P.cols;
-    int dimGrid(1 + (thread_nb / THREADS_PER_BLOCK));
-    int dimBlock(THREADS_PER_BLOCK);
+    int dimBlock = fmatrix_elements(d_P);
+    int dimGrid = 1;
+    if (dimBlock > THREADS_PER_BLOCK)
+    {
+        dimGrid = (dimBlock - 1) / THREADS_PER_BLOCK + 1;
+        dimBlock = THREADS_PER_BLOCK;
+    }
 
     /* Create the matrix which will contain the log of P */
     fmatrix d_logP = fmatrix_create_on_device(d_P.rows, d_P.cols);
+    fmatrix_assert(d_logP);
 
     /* Compute the log */
-    log_kernel<<<dimGrid, dimBlock>>>(d_P, d_logP.data);
+    log_kernel<<<dimGrid, dimBlock>>>(d_P, d_logP);
     gpuErrchk(cudaPeekAtLastError());
 
     fmatrix d_Z = fmatrix_create_on_device(d_Y.cols, d_P.cols);
 
-    float J;
+    float J = 0;
     float *d_J = NULL;
     cudaMalloc((void **)&d_J, sizeof(float));
+    cudaMemcpy(d_J, &J, sizeof(float), cudaMemcpyHostToDevice);
 
     float alpha = -1.0f;
     float beta = 0.0f;

@@ -21,6 +21,7 @@ float evaluate_accuracy(cublasHandle_t handle, fmatrix d_W, fmatrix d_X, fmatrix
  * which must be previously allocated.
  * logloss = sum_k sum_j -Y(j,k)*log(P(j,k))
  * logloss = sum_k sum_j -Y^T(k,j)*log(P(j,k))
+ * logloss = -sum(diag(Y^T*log(P))
  */
 float evaluate_logloss(cublasHandle_t handle, fmatrix d_P, fmatrix d_Y, bool verbose = true);
 
