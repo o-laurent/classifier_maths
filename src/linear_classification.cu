@@ -54,10 +54,8 @@ int main(int argc, char **argv)
 
     /* Copy data to device */
     fmatrix d_X = fmatrix_copy_to_device(h_X);
-    fmatrix_device_to_csv("d_X.csv", d_X);
 
     fmatrix d_Y = fmatrix_copy_to_device(h_Y);
-    fmatrix_device_to_csv("d_Y.csv", d_Y);
 
     fmatrix d_Xtest = fmatrix_copy_to_device(h_Xtest);
     fmatrix d_Ytest = fmatrix_copy_to_device(h_Ytest);
@@ -137,11 +135,7 @@ int main(int argc, char **argv)
         }
 
         /* compute softmax per column of Z and store in P */
-        fmatrix_device_to_csv("d_Zpre.csv", d_Z);
-
         d_P = softmax_col(d_Z);
-
-        fmatrix_device_to_csv("dPmain.csv", d_P);
 
         gpuErrchk(cudaPeekAtLastError());
 

@@ -60,9 +60,6 @@ fmatrix stable_softmax(fmatrix Z_d)
     /* Check the input matrix */
     fmatrix_assert(Z_d);
 
-    // printf("Z_d\n");
-    // fmatrix_device_print(Z_d);
-
     /* One thread per column */
     int thread_nb = Z_d.cols;
     dim3 dimGrid(1 + (thread_nb / THREADS_PER_BLOCK));
@@ -75,9 +72,6 @@ fmatrix stable_softmax(fmatrix Z_d)
     /* Compute the maximum over each col */
     max_kernel<<<dimGrid, dimBlock>>>(Z_d, d_M);
     gpuErrchk(cudaPeekAtLastError());
-    // fmatrix_device_to_csv("soft_dM.csv", d_M);
-    // printf("max\n");
-    // fmatrix_device_print(d_M);
 
     /* One thread per element */
     thread_nb = Z_d.cols * Z_d.rows;
@@ -95,7 +89,6 @@ fmatrix stable_softmax(fmatrix Z_d)
     /* Divide by the sum */
     softmax_kernel_div<<<dimGrid, dimBlock>>>(d_expZ, d_S);
     gpuErrchk(cudaPeekAtLastError());
-    // fmatrix_device_to_csv("soft_dexpZ_2.csv", d_expZ);
 
     /* Free the memory */
     fmatrix_free_on_device(&d_M);
