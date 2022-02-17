@@ -3,27 +3,27 @@
 #define THREADS_PER_BLOCK 1024
 
 /* Compute the max of each col on the device */
-__global__ void max_kernel(float *Z_d, int nb_LigneZ, int nb_ColZ, float *M, int nb_LigneM)
+static __global__ void max_kernel(fmatrix d_Z, fmatrix d_M)
 {
     int case_id = blockIdx.x * blockDim.x + threadIdx.x;
     int j = case_id;
 
     /* If j is coherent */
-    if (j < nb_ColZ)
+    if (j < d_Z.cols)
     {
-        for (int i = 0; i < nb_LigneZ; i++)
+        for (int i = 0; i < d_Z.rows; i++)
         {
             /* Replace the maximum if greater */
-            if (Z_d[IDX2C(i, j, nb_LigneZ)] > M[IDX2C(j, 0, nb_LigneM)])
+            if (getfm(d_Z, i, j) > getfm(d_M, j, 0))
             {
-                M[IDX2C(j, 0, nb_LigneM)] = Z_d[IDX2C(i, j, nb_LigneZ)];
+                getfm(d_M, j, 0) = getfm(d_Z, i, j);
             }
         }
     }
 }
 
 /* Start computing the softmax on the device */
-__global__ void softmax_kernel(fmatrix d_Z, float *M, int nb_Lignem, float *S, int nb_LigneS, float *expZ_d)
+static __global__ void softmax_kernel(fmatrix d_Z, fmatrix d_M, fmatrix d_S, fmatrix d_expZ)
 {
     int case_id = blockIdx.x * blockDim.x + threadIdx.x;
     int i = case_id % d_Z.rows; // line id
@@ -33,15 +33,15 @@ __global__ void softmax_kernel(fmatrix d_Z, float *M, int nb_Lignem, float *S, i
     if (j < d_Z.cols)
     {
         /* Compute the stable exponential */
-        expZ_d[IDX2C(i, j, d_Z.rows)] = expf(d_Z.data[IDX2C(i, j, d_Z.rows)] - M[IDX2C(j, 0, nb_LigneS)]);
+        getfm(d_expZ, i, j) = expf(getfm(d_Z, i, j) - getfm(d_M, j, 0));
 
         /* Compute the sum */
-        atomicAdd(&S[IDX2C(j, 0, nb_LigneS)], expZ_d[IDX2C(i, j, d_Z.rows)]);
+        atomicAdd(&getfm(d_S, j, 0), getfm(d_expZ, i, j));
     }
 }
 
 /* Compute the softmax on the device */
-static __global__ void softmax_kernel_div(fmatrix d_Z, float *S, int nb_LigneS)
+static __global__ void softmax_kernel_div(fmatrix d_Z, fmatrix d_S)
 {
     int case_id = blockIdx.x * blockDim.x + threadIdx.x;
     int i = case_id % d_Z.rows; // line id
@@ -51,7 +51,7 @@ static __global__ void softmax_kernel_div(fmatrix d_Z, float *S, int nb_LigneS)
     if (j < d_Z.cols)
     {
         /* Divide by the sum */
-        d_Z.data[IDX2C(i, j, d_Z.rows)] = d_Z.data[IDX2C(i, j, d_Z.rows)] / S[IDX2C(j, 0, nb_LigneS)];
+        getfm(d_Z, i, j) /= getfm(d_S, j, 0);
     }
 }
 
@@ -69,35 +69,37 @@ fmatrix stable_softmax(fmatrix Z_d)
     dim3 dimBlock(THREADS_PER_BLOCK);
 
     /* Create the matrix to hold the maximum values */
-    fmatrix M = fmatrix_create_minus_inf_on_device(Z_d.cols, 1);
+    fmatrix d_M = fmatrix_create_minus_inf_on_device(Z_d.cols, 1);
     gpuErrchk(cudaPeekAtLastError());
 
     /* Compute the maximum over each col */
-    max_kernel<<<dimGrid, dimBlock>>>(Z_d.data, Z_d.rows, Z_d.cols, M.data, M.cols);
+    max_kernel<<<dimGrid, dimBlock>>>(Z_d, d_M);
     gpuErrchk(cudaPeekAtLastError());
+    // fmatrix_device_to_csv("soft_dM.csv", d_M);
     // printf("max\n");
-    // fmatrix_device_print(M);
+    // fmatrix_device_print(d_M);
 
     /* One thread per element */
     thread_nb = Z_d.cols * Z_d.rows;
     dimGrid = 1 + (thread_nb / THREADS_PER_BLOCK);
     dimBlock = THREADS_PER_BLOCK;
 
-    /* Replace by exponentials and compute the sum */
-    fmatrix expZ_d = fmatrix_create_null_on_device(Z_d.rows, Z_d.cols);
-    fmatrix S = fmatrix_create_null_on_device(Z_d.cols, 1);
+    /* Compute exponentials and compute the sum */
+    fmatrix d_expZ = fmatrix_create_null_on_device(Z_d.rows, Z_d.cols);
+    fmatrix d_S = fmatrix_create_null_on_device(Z_d.cols, 1);
     gpuErrchk(cudaPeekAtLastError());
 
-    softmax_kernel<<<dimGrid, dimBlock>>>(Z_d, M.data, M.cols, S.data, S.cols, expZ_d.data);
+    softmax_kernel<<<dimGrid, dimBlock>>>(Z_d, d_M, d_S, d_expZ);
     gpuErrchk(cudaPeekAtLastError());
 
     /* Divide by the sum */
-    softmax_kernel_div<<<dimGrid, dimBlock>>>(expZ_d, S.data, S.cols);
+    softmax_kernel_div<<<dimGrid, dimBlock>>>(d_expZ, d_S);
     gpuErrchk(cudaPeekAtLastError());
+    // fmatrix_device_to_csv("soft_dexpZ_2.csv", d_expZ);
 
     /* Free the memory */
-    fmatrix_free_on_device(&M);
-    fmatrix_free_on_device(&S);
+    fmatrix_free_on_device(&d_M);
+    fmatrix_free_on_device(&d_S);
 
-    return expZ_d;
+    return d_expZ;
 }
