@@ -51,12 +51,8 @@ __global__ void normalization_kernel(fmatrix d_X, float *Mu, int nb_LigneMu, flo
         /* Iterate over the cols */
         for (int j = 0; j < d_X.cols; j++)
         {
-            /* Update the value X(i,j) */
-            if (Std[IDX2C(i, 0, nb_LigneMu)] < 1e-5)
-            {
-                getfm(d_X, i, j) = getfm(d_X, i, j) - Mu[IDX2C(i, 0, nb_LigneMu)];
-            }
-            else
+            /* Update the value X(i,j) - do not normalize the biais */
+            if (Std[IDX2C(i, 0, nb_LigneMu)] > 1e-5)
             {
                 getfm(d_X, i, j) = (getfm(d_X, i, j) - Mu[IDX2C(i, 0, nb_LigneMu)]) / Std[IDX2C(i, 0, nb_LigneMu)];
             }
@@ -114,6 +110,7 @@ void parametered_normalize(fmatrix d_X, fmatrix d_Mu, fmatrix d_Std)
     fmatrix_assert(d_Mu);
     fmatrix_assert(d_Std);
 
+    /* One thread per column */
     int thread_nb = d_X.cols;
     dim3 dimGrid(1 + (thread_nb / THREADS_PER_BLOCK));
     dim3 dimBlock(THREADS_PER_BLOCK);
