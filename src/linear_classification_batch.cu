@@ -159,15 +159,21 @@ int main(int argc, char **argv)
             d_P = softmax_col(d_Z);
             gpuErrchk(cudaPeekAtLastError());
 
+            /* Compute mean J for reporting */
+            J = evaluate_logloss(handle, d_P, d_Y, verbose) / nb_col;
+
+            if (verbose)
+            {
+                printf("d_P:");
+                fmatrix_device_print(d_P);
+            }
+
             // Q := P-Y
             fmatrix d_Q = fmatrix_add(d_P, -1.0f, d_Y);
             gpuErrchk(cudaPeekAtLastError());
 
             if (verbose)
             {
-                printf("d_P:");
-                fmatrix_device_print(d_P);
-
                 printf("d_Y:");
                 fmatrix_device_print(d_Y);
 
@@ -206,9 +212,6 @@ int main(int argc, char **argv)
             {
                 fmatrix_device_print(d_W);
             }
-
-            /* Compute J for reporting */
-            J = evaluate_logloss(handle, d_P, d_Y, verbose);
 
             /* Increase pointer */
             batch_pointer += batch_size;

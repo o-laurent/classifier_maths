@@ -74,12 +74,6 @@ extern "C"
         fmatrix d_G = fmatrix_create_on_device((int)D, (int)M);
         fmatrix d_Ztest = fmatrix_create_on_device((int)M, d_Xtest.cols);
 
-        /////////////////////////////////////////////////////////
-        // Batch Gradient Descent
-        /////////////////////////////////////////////////////////
-        // fmatrix_device_print(d_X);
-        // fmatrix_device_print(d_W);
-
         /* Create Handle */
         cublasHandle_t handle;
         cublasStatus_t stat = cublasCreate(&handle);
@@ -133,11 +127,14 @@ extern "C"
                 d_P = softmax_col(d_Z);
                 gpuErrchk(cudaPeekAtLastError());
 
-                // Q := P-Y
+                /* Compute mean J for reporting */
+                J = evaluate_logloss(handle, d_P, d_Y, verbose) / nb_col;
+
+                /* Q := P-Y */
                 fmatrix d_Q = fmatrix_add(d_P, -1.0f, d_Y);
                 gpuErrchk(cudaPeekAtLastError());
 
-                // compute gradient G = XQ^T
+                /* compute gradient G = XQ^T */
                 multstat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, d_X.rows, d_Q.rows, d_X.cols, &alpha, d_X.data, d_X.rows, d_Q.data, d_Q.rows, &beta, d_G.data, d_G.rows);
                 gpuErrchk(cudaPeekAtLastError());
 
@@ -146,12 +143,9 @@ extern "C"
                     printf("CUBLAS matrix multiplication failed 4\n");
                 }
 
-                // update weights W = W - learning_rate*G
+                /* update weights W = W - learning_rate*G */
                 d_W = fmatrix_add(d_W, -learning_rate, d_G);
                 gpuErrchk(cudaPeekAtLastError());
-
-                /* Compute J for reporting */
-                J = evaluate_logloss(handle, d_P, d_Y, verbose);
 
                 /* Increase the pointer */
                 batch_pointer += batch_size;
@@ -169,6 +163,7 @@ extern "C"
         }
         t_end = clock();
         float duration = ((float)(t_end - t_start_total)) / CLOCKS_PER_SEC;
+
         /* Evaluate the accuracy */
         accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
 

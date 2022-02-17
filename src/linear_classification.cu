@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     /* Hyperarameters for Stochastic Gradient Descent */
     int nb_iter = 100;          // default: 10;
     int periods = nb_iter;      // reporting period
-    float learning_rate = 1e-5; // default: 1e-7
+    float learning_rate = 1e-4; // default: 1e-7
     bool verbose = false;       // Show logs
 
     /* Reading the data set */
@@ -54,7 +54,11 @@ int main(int argc, char **argv)
 
     /* Copy data to device */
     fmatrix d_X = fmatrix_copy_to_device(h_X);
+    fmatrix_device_to_csv("d_X.csv", d_X);
+
     fmatrix d_Y = fmatrix_copy_to_device(h_Y);
+    fmatrix_device_to_csv("d_Y.csv", d_Y);
+
     fmatrix d_Xtest = fmatrix_copy_to_device(h_Xtest);
     fmatrix d_Ytest = fmatrix_copy_to_device(h_Ytest);
     fmatrix d_W = fmatrix_copy_to_device(h_W);
@@ -87,12 +91,6 @@ int main(int argc, char **argv)
     fmatrix d_G = fmatrix_create_on_device(D, M);
     fmatrix d_Ztest = fmatrix_create_on_device(M, d_Xtest.cols);
 
-    /////////////////////////////////////////////////////////
-    // Batch Gradient Descent
-    /////////////////////////////////////////////////////////
-    // fmatrix_device_print(d_X);
-    // fmatrix_device_print(d_W);
-
     /* Create Handle */
     cublasHandle_t handle;
     cublasStatus_t stat = cublasCreate(&handle);
@@ -104,7 +102,7 @@ int main(int argc, char **argv)
     /* Evaluate the starting accuracy */
     float accuracy = 0;
     accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
-    float J = evaluate_logloss(handle, d_P, d_Y, verbose);
+    float J = 0;
     printf("Initial accuracy: %f\n", accuracy);
 
     float alpha = 1.0f;
@@ -139,17 +137,27 @@ int main(int argc, char **argv)
         }
 
         /* compute softmax per column of Z and store in P */
+        fmatrix_device_to_csv("d_Zpre.csv", d_Z);
+
         d_P = softmax_col(d_Z);
+
+        fmatrix_device_to_csv("dPmain.csv", d_P);
+
         gpuErrchk(cudaPeekAtLastError());
+
+        J = evaluate_logloss(handle, d_P, d_Y, verbose) / N;
+
+        if (verbose)
+        {
+            printf("d_P:");
+            fmatrix_device_print(d_P);
+        }
 
         /* Compute Q := P-Y */
         fmatrix d_Q = fmatrix_add(d_P, -1.0f, d_Y);
 
         if (verbose)
         {
-            printf("d_P:");
-            fmatrix_device_print(d_P);
-
             printf("d_Y:");
             fmatrix_device_print(d_Y);
 
@@ -185,20 +193,12 @@ int main(int argc, char **argv)
         d_W = fmatrix_add(d_W, -learning_rate, d_G);
         gpuErrchk(cudaPeekAtLastError());
 
-        if (verbose)
-        {
-            fmatrix_device_print(d_W);
-        }
-
-        // printf("W:\n");fmatrix_device_print(d_W);
-
         ////////////////////////////////
         // For reporting, compute logloss and accuracy
         ////////////////////////////////
         if (i % (nb_iter / periods) == 0)
         {
             float accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
-            J = evaluate_logloss(handle, d_P, d_Y, verbose);
             printf("iter: %d, logloss: %f, accuracy: %f\n", i, J, accuracy);
             fprintf(fp, "%f,%f\n", J, accuracy);
         }
@@ -208,8 +208,7 @@ int main(int argc, char **argv)
     printf("Duration (s): %f\n", duration);
     /* Evaluate the accuracy */
     accuracy = evaluate_accuracy(handle, d_W, d_Xtest, d_Ytest, d_Ztest, verbose);
-    J = evaluate_logloss(handle, d_P, d_Y, verbose);
-    printf("Final accuracy: %f - Final logloss: %f\n", accuracy, J);
+    printf("Final accuracy: %f\n", accuracy);
 
     printf("Final weights: \n");
     fmatrix_device_print(d_W);
